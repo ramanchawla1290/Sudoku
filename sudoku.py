@@ -5,17 +5,114 @@ Creating a VALID 9x9 Sudoku Board as per the following rules:
 1. In all the 9 grids (3×3 sub-grids), the elements should be 1-9, without repetition.
 2. In all the rows, the elements should be between 1-9 , without repetition.
 3. In all the columns, the elements should be between 1-9 , without repetition.
+
+Constructors:
+    Sudoku():
+        creates an empty instance.
+        To assign a grid, set the 'grid' property of the class instance
+        to a valid 9x9 array
+        eg:
+        su = Sudoku()
+        su..grid = GRID_ARRAY    # where GRID_ARRAY is a 9x9 array
+
+    Sudoku(grid_array):
+        where 'grid_array' is a 9x9 array representing a Sudoku grid
+
+    Sudoku.new_grid(difficulty):
+        where 'difficulty' can be : Sudoku.EASY, Sudoku.NORMAL or Sudoku.HARD
+                                     (36 empty)   (45 empty)      (54 empty)
 """
 
 from random import shuffle
 
 
-class Sudoku:
-    """Class to implement Sudoku board generation and validity check"""
+class SudokuError(Exception):
+    """Exception class for Sudoku related errors"""
 
-    def __init__(self):
+    def __init__(self, *args):
         """Constructor"""
-        self.grid = Sudoku.__get_new_grid()
+        Exception.__init__(self, *args)
+
+
+class SudokuMeta(type):
+    """Metaclass for Sudoku Class"""
+    def __init__(cls, *args, **kwargs):
+        cls.__easy = "easy"             # 36 empty cells
+        cls.__normal = "normal"         # 45 empty cells
+        cls.__hard = "hard"             # 54 empty cells
+        super().__init__(*args, **kwargs)
+
+    @property
+    def EASY(cls):
+        """property getter for __easy"""
+        return cls.__easy
+
+    @property
+    def NORMAL(cls):
+        """property getter for __normal"""
+        return cls.__normal
+
+    @property
+    def HARD(cls):
+        """property getter for __hard"""
+        return cls.__hard
+
+    @EASY.setter
+    def EASY(cls, val):
+        """property setter for __easy"""
+        raise SudokuError("Operation not allowed. Cannot change the internal "
+                          + "value of the difficulty level")
+
+    @NORMAL.setter
+    def NORMAL(cls, val):
+        """property setter for __normal"""
+        raise SudokuError("Operation not allowed. Cannot change the internal "
+                          + "value of the difficulty level")
+
+    @HARD.setter
+    def HARD(cls, val):
+        """property setter for __hard"""
+        raise SudokuError("Operation not allowed. Cannot change the internal "
+                          + "value of the difficulty level")
+
+
+def check_grid_for_none(func):
+    """Decorator to Raise SudokuError if grid is 'None'"""
+
+    def wrapper(self, *args, **kwargs):
+        """wrapper for methods of class Sudoku"""
+        if self.grid is None:
+            raise SudokuError("Cannot process EMPTY grid. "
+                              + "Please assign / generate a grid before processing.")
+        else:
+            return func(self, *args, **kwargs)
+    return wrapper
+
+
+class Sudoku(metaclass=SudokuMeta):
+    """Class to implement Sudoku board generation and solution"""
+
+    def __init__(self, grid=None):
+        """Constructor"""
+        self.__grid = None
+        if grid:
+            self.grid = grid
+
+    @property
+    def grid(self):
+        """Returns the current Sudoku grid"""
+        return self.__grid
+
+    @grid.setter
+    def grid(self, grid):
+        """Handles assignment of new value to grid"""
+        old_grid = self.__grid
+        self.__grid = grid
+        try:
+            self.__is_valid_grid()
+        except SudokuError as ex:
+            self.__grid = old_grid
+            raise SudokuError("Error in Grid Assignment : " + str(ex)) from ex
 
     @staticmethod
     def __get_new_grid():
@@ -41,28 +138,91 @@ class Sudoku:
 
         return grid
 
+    def new_grid(self, level):
+        """Assigns new grid of specified difficulty level to class instance"""
+        if not isinstance(level, str):
+            raise SudokuError(f"Invalid type '{type(level).__name__}' "
+                              + "for grid difficulty level")
+
+        elif level.lower() not in (Sudoku.EASY, Sudoku.NORMAL, Sudoku.HARD):
+            raise SudokuError("Invalid value for grid difficulty level\n"
+                              + "Valid options are : "
+                              + "Sudoku.EASY, Sudoku.NORMAL or Sudoku.HARD")
+
+        else:
+            self.__grid = self.__get_new_grid()
+            #
+            #
+            # PENDING : Deletion of random elements from the solved grid
+
+    @check_grid_for_none
     def __is_valid_grid(self):
         """Validates the grid for size and values, Raises ValueError if invalid"""
-        if not isinstance(self.grid, list):
-            raise TypeError("Invalid type "
-                            + f"'{type(self.grid).__name__}' for Sudoku grid")
+        if not isinstance(self.__grid, list):
+            raise SudokuError("Invalid grid type "
+                              + f"'{type(self.__grid).__name__}' for Sudoku grid."
+                              + " Only 'list' is allowed.")
 
-        if len(self.grid) != 9:  # Checking if grid doesn't have 9 rows
-            raise ValueError("Invalid grid size! "
-                             + f"{len(self.grid)} rows in grid")
+        if len(self.__grid) != 9:      # Checking if grid doesn't have 9 rows
+            raise SudokuError("Invalid grid size! "
+                              + f"{len(self.__grid)} rows in grid")
 
-        for i in range(9):  # Checking if any row doesn't have 9 numbers
-            if len(self.grid[i]) != 9:
-                raise ValueError("Invalid grid size! Only"
-                                 + f"{len(self.grid[i])} numbers in row {i}")
+        for i in range(9):        # Checking if any row doesn't have 9 values
+            if len(self.__grid[i]) != 9:
+                raise SudokuError("Invalid grid size! "
+                                  + f"{len(self.__grid[i])} values in row {i}")
 
-        # PENDING : Checking of values
+        grid_complete = True
 
+        for row in self.__grid:
+            for num in row:
+                if not isinstance(num, int):
+                    raise SudokuError("Invalid value type "
+                                      + f"'{type(num).__name__}'. "
+                                      + "Only 'int' values allowed")
+                elif num < 0 or num > 9:
+                    raise SudokuError(f"Invalid value {num}. Valid range 1-9."
+                                      + "0 denotes 'Not Filled' Sudoku grid")
+                elif num == 0:
+                    grid_complete = False
+
+        try:
+            self.__check_repetition()
+        except SudokuError as ex:
+            raise SudokuError("REPETITION : " + str(ex)) from ex
+
+        # After all checks
+        return grid_complete
+
+    @check_grid_for_none
+    def __check_repetition(self):
+        """method to check repetition of values across row, column or block"""
+        for i in range(9):
+            row_ = tuple(n for n in self.__grid[i] if n > 0)
+            col_ = tuple(row[i] for row in self.__grid if row[i] > 0)
+
+            if len(row_) != len(set(row_)):             # Checking across Row
+                raise SudokuError(f"Repetition of numbers in row {i}")
+
+            if len(col_) != len(set(col_)):          # Checking across Column
+                raise SudokuError(f"Repetition of numbers in column {i}")
+
+        for i in range(3):                            # Checking across Block
+            for j in range(3):
+                block = tuple(self.__grid[x][y]
+                              for x in range(i * 3, (i + 1) * 3)
+                              for y in range(j * 3, (j + 1) * 3)
+                              if self.__grid[x][y] > 0)
+                if len(block) != len(set(block)):
+                    raise SudokuError("Repetition of numbers in Block "
+                                      + f"{3*i + j + 1}")
+
+    @check_grid_for_none
     def __move_possible(self, row, col, num):
         """Returns True if move is valid, False otherwise"""
         # Checking possibility along row and column
         for i in range(9):
-            if self.grid[row][i] == num or self.grid[i][col] == num:
+            if self.__grid[row][i] == num or self.__grid[i][col] == num:
                 return False
 
         # Location of upper-left corner of the 3x3 block
@@ -72,61 +232,55 @@ class Sudoku:
         # Checking possibility in the block
         for i in range(3):
             for j in range(3):
-                if self.grid[x_0 + i][y_0 + j] == num:
+                if self.__grid[x_0 + i][y_0 + j] == num:
                     return False
         return True
 
+    @check_grid_for_none
     def __solve(self):
         """Replaces 0's in the Sudoku grid with valid numbers"""
         for i in range(9):
             for j in range(9):
-                if self.grid[i][j] == 0:
+                if self.__grid[i][j] == 0:
                     for num in range(1, 10):
                         if self.__move_possible(i, j, num):
-                            self.grid[i][j] = num
+                            self.__grid[i][j] = num
                             if self.__solve():
                                 return True
-                            self.grid[i][j] = 0
+                            self.__grid[i][j] = 0
                     return
 
         # When the grid is full
         return True
 
+    @check_grid_for_none
     def solve(self):
         """Validates the grid, Returns the solved grid"""
         try:
             self.__is_valid_grid()
-        except ValueError as ex:
-            print(str(ex))
-        except TypeError as ex:
-            print(str(ex))
+        except SudokuError as ex:
+            raise SudokuError(str(ex)) from ex
         else:
             print()
-            print("Sudoku Grid:")
-            self.print_grid()
             if self.__solve():
-                print()
                 print("Solution:")
                 self.print_grid()
             else:
-                print()
                 print("No solution for the current grid!")
 
+    @check_grid_for_none
     def print_grid(self):
         """Prints the 9x9 Sudoku Grid"""
+
         print()
-        for row in self.grid:
+        for row in self.__grid:
             for num in row:
                 print(num, end="  ")
             print()
 
 
 if __name__ == "__main__":
-    s = Sudoku()
-
-    s.solve()  # Solving generated grid
-
-    s.grid = [[5, 3, 0, 0, 7, 0, 0, 0, 0],
+    grid_0 = [[5, 3, 0, 0, 7, 0, 0, 0, 0],
               [6, 0, 0, 1, 9, 5, 0, 0, 0],
               [0, 9, 8, 0, 0, 0, 0, 6, 0],
               [8, 0, 0, 0, 6, 0, 0, 0, 3],
@@ -136,4 +290,18 @@ if __name__ == "__main__":
               [0, 0, 0, 4, 1, 9, 0, 0, 5],
               [0, 0, 0, 0, 8, 0, 0, 0, 0]]
 
-    s.solve()  # Solving Custom grid
+    # s = Sudoku(grid_0)
+
+    s = Sudoku()
+
+    s.grid = grid_0
+
+    # s.new_grid(Sudoku.HARD)
+
+    s.print_grid()
+
+    s.solve()
+
+    print(Sudoku.EASY)
+    print(Sudoku.NORMAL)
+    print(Sudoku.HARD)
