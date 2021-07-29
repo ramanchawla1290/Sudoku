@@ -12,8 +12,10 @@ Constructors:
         To assign a grid, set the 'grid' property of the class instance
         to a valid 9x9 array
         eg:
-        su = Sudoku()
-        su..grid = GRID_ARRAY    # where GRID_ARRAY is a 9x9 array
+
+        >> su = Sudoku()
+        >> su..grid = GRID_ARRAY    # where GRID_ARRAY is a 9x9 array
+                                    # a list of 9 lists containing 9 numbers each
 
     Sudoku(grid_array):
         where 'grid_array' is a 9x9 array representing a Sudoku grid
@@ -23,7 +25,13 @@ Constructors:
                                      (36 empty)   (45 empty)      (54 empty)
 """
 
-from random import shuffle
+from random import randint, shuffle
+
+LEVEL_DICT = {
+    "easy": 36,
+    "normal": 45,
+    "hard": 54
+}
 
 
 class SudokuError(Exception):
@@ -151,9 +159,18 @@ class Sudoku(metaclass=SudokuMeta):
 
         else:
             self.__grid = self.__get_new_grid()
-            #
-            #
-            # PENDING : Deletion of random elements from the solved grid
+
+            self.solve()
+
+            count = LEVEL_DICT[level.lower()]
+
+            while count > 0:
+                row = randint(0, 8)
+                col = randint(0, 8)
+
+                if self.__grid[row][col] > 0:
+                    self.__grid[row][col] = 0
+                    count -= 1
 
     @check_grid_for_none
     def __is_valid_grid(self):
@@ -172,7 +189,7 @@ class Sudoku(metaclass=SudokuMeta):
                 raise SudokuError("Invalid grid size! "
                                   + f"{len(self.__grid[i])} values in row {i}")
 
-        grid_complete = True
+        zero_count = 0
 
         for row in self.__grid:
             for num in row:
@@ -184,7 +201,7 @@ class Sudoku(metaclass=SudokuMeta):
                     raise SudokuError(f"Invalid value {num}. Valid range 1-9."
                                       + "0 denotes 'Not Filled' Sudoku grid")
                 elif num == 0:
-                    grid_complete = False
+                    zero_count += 1
 
         try:
             self.__check_repetition()
@@ -192,7 +209,7 @@ class Sudoku(metaclass=SudokuMeta):
             raise SudokuError("REPETITION : " + str(ex)) from ex
 
         # After all checks
-        return grid_complete
+        return zero_count
 
     @check_grid_for_none
     def __check_repetition(self):
@@ -237,7 +254,7 @@ class Sudoku(metaclass=SudokuMeta):
         return True
 
     @check_grid_for_none
-    def __solve(self):
+    def solve(self):
         """Replaces 0's in the Sudoku grid with valid numbers"""
         for i in range(9):
             for j in range(9):
@@ -245,28 +262,13 @@ class Sudoku(metaclass=SudokuMeta):
                     for num in range(1, 10):
                         if self.__move_possible(i, j, num):
                             self.__grid[i][j] = num
-                            if self.__solve():
+                            if self.solve():
                                 return True
                             self.__grid[i][j] = 0
                     return
 
         # When the grid is full
         return True
-
-    @check_grid_for_none
-    def solve(self):
-        """Validates the grid, Returns the solved grid"""
-        try:
-            self.__is_valid_grid()
-        except SudokuError as ex:
-            raise SudokuError(str(ex)) from ex
-        else:
-            print()
-            if self.__solve():
-                print("Solution:")
-                self.print_grid()
-            else:
-                print("No solution for the current grid!")
 
     @check_grid_for_none
     def print_grid(self):
@@ -290,18 +292,21 @@ if __name__ == "__main__":
               [0, 0, 0, 4, 1, 9, 0, 0, 5],
               [0, 0, 0, 0, 8, 0, 0, 0, 0]]
 
-    # s = Sudoku(grid_0)
+    # s = Sudoku()
+    # s.grid = grid_0
 
-    s = Sudoku()
-
-    s.grid = grid_0
-
-    # s.new_grid(Sudoku.HARD)
-
+    s = Sudoku(grid_0)
     s.print_grid()
 
-    s.solve()
+    if s.solve():
+        s.print_grid()
 
-    print(Sudoku.EASY)
-    print(Sudoku.NORMAL)
-    print(Sudoku.HARD)
+    # s.new_grid(Sudoku.EASY)
+
+    # s.new_grid(Sudoku.NORMAL)
+
+    s.new_grid(Sudoku.HARD)
+    s.print_grid()
+
+    if s.solve():
+        s.print_grid()
