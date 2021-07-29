@@ -159,11 +159,9 @@ class Sudoku(metaclass=SudokuMeta):
 
         else:
             self.__grid = self.__get_new_grid()
-
             self.solve()
 
             count = LEVEL_DICT[level.lower()]
-
             while count > 0:
                 row = randint(0, 8)
                 col = randint(0, 8)
@@ -171,45 +169,6 @@ class Sudoku(metaclass=SudokuMeta):
                 if self.__grid[row][col] > 0:
                     self.__grid[row][col] = 0
                     count -= 1
-
-    @check_grid_for_none
-    def __is_valid_grid(self):
-        """Validates the grid for size and values, Raises ValueError if invalid"""
-        if not isinstance(self.__grid, list):
-            raise SudokuError("Invalid grid type "
-                              + f"'{type(self.__grid).__name__}' for Sudoku grid."
-                              + " Only 'list' is allowed.")
-
-        if len(self.__grid) != 9:      # Checking if grid doesn't have 9 rows
-            raise SudokuError("Invalid grid size! "
-                              + f"{len(self.__grid)} rows in grid")
-
-        for i in range(9):        # Checking if any row doesn't have 9 values
-            if len(self.__grid[i]) != 9:
-                raise SudokuError("Invalid grid size! "
-                                  + f"{len(self.__grid[i])} values in row {i}")
-
-        zero_count = 0
-
-        for row in self.__grid:
-            for num in row:
-                if not isinstance(num, int):
-                    raise SudokuError("Invalid value type "
-                                      + f"'{type(num).__name__}'. "
-                                      + "Only 'int' values allowed")
-                elif num < 0 or num > 9:
-                    raise SudokuError(f"Invalid value {num}. Valid range 1-9."
-                                      + "0 denotes 'Not Filled' Sudoku grid")
-                elif num == 0:
-                    zero_count += 1
-
-        try:
-            self.__check_repetition()
-        except SudokuError as ex:
-            raise SudokuError("REPETITION : " + str(ex)) from ex
-
-        # After all checks
-        return zero_count
 
     @check_grid_for_none
     def __check_repetition(self):
@@ -235,6 +194,38 @@ class Sudoku(metaclass=SudokuMeta):
                                       + f"{3*i + j + 1}")
 
     @check_grid_for_none
+    def __is_valid_grid(self):
+        """method to validate the grid for size, values, Returns count of empty cells"""
+        if not isinstance(self.__grid, list):
+            raise SudokuError("Invalid grid type "
+                              + f"'{type(self.__grid).__name__}' for Sudoku grid."
+                              + " Only 'list' is allowed.")
+
+        if len(self.__grid) != 9:      # Checking if grid doesn't have 9 rows
+            raise SudokuError("Invalid grid size! "
+                              + f"{len(self.__grid)} rows in grid")
+
+        for i in range(9):        # Checking if any row doesn't have 9 values
+            if len(self.__grid[i]) != 9:
+                raise SudokuError("Invalid grid size! "
+                                  + f"{len(self.__grid[i])} values in row {i}")
+
+        zero_count = 0
+        for row in self.__grid:
+            for num in row:
+                if not isinstance(num, int):
+                    raise SudokuError("Invalid value type "
+                                      + f"'{type(num).__name__}'. "
+                                      + "Only 'int' values allowed")
+                elif num < 0 or num > 9:
+                    raise SudokuError(f"Invalid value {num}. Valid range 1-9."
+                                      + "0 denotes 'Not Filled' Sudoku grid")
+                elif num == 0:
+                    zero_count += 1
+
+        return zero_count  # After all checks
+
+    @check_grid_for_none
     def __move_possible(self, row, col, num):
         """Returns True if move is valid, False otherwise"""
         # Checking possibility along row and column
@@ -254,7 +245,7 @@ class Sudoku(metaclass=SudokuMeta):
         return True
 
     @check_grid_for_none
-    def solve(self):
+    def __solve(self):
         """Replaces 0's in the Sudoku grid with valid numbers"""
         for i in range(9):
             for j in range(9):
@@ -262,18 +253,25 @@ class Sudoku(metaclass=SudokuMeta):
                     for num in range(1, 10):
                         if self.__move_possible(i, j, num):
                             self.__grid[i][j] = num
-                            if self.solve():
+                            if self.__solve():
                                 return True
                             self.__grid[i][j] = 0
                     return
+        return True  # When the grid is full
 
-        # When the grid is full
-        return True
+    @check_grid_for_none
+    def solve(self):
+        """method to solve the grid if there is no repetition"""
+        try:
+            self.__check_repetition()
+        except SudokuError as ex:
+            raise SudokuError(str(ex)) from ex
+        else:
+            return self.__solve()
 
     @check_grid_for_none
     def print_grid(self):
         """Prints the 9x9 Sudoku Grid"""
-
         print()
         for row in self.__grid:
             for num in row:
@@ -292,21 +290,46 @@ if __name__ == "__main__":
               [0, 0, 0, 4, 1, 9, 0, 0, 5],
               [0, 0, 0, 0, 8, 0, 0, 0, 0]]
 
-    # s = Sudoku()
-    # s.grid = grid_0
+    grid_1 = [[5, 3, 0, 0, 7, 0, 6, 0, 0],
+              [6, 0, 0, 1, 9, 5, 0, 0, 0],
+              [0, 9, 8, 0, 0, 0, 0, 6, 0],
+              [8, 0, 0, 0, 6, 0, 0, 0, 3],
+              [4, 0, 0, 8, 0, 3, 0, 0, 1],
+              [7, 0, 0, 0, 2, 0, 0, 0, 6],
+              [0, 6, 0, 0, 0, 0, 2, 8, 0],
+              [0, 0, 0, 4, 1, 9, 0, 0, 5],
+              [0, 0, 0, 0, 8, 0, 0, 0, 0]]
 
-    s = Sudoku(grid_0)
+    s = Sudoku()
+    s.grid = grid_0
     s.print_grid()
 
-    if s.solve():
-        s.print_grid()
+    try:
+        if s.solve():
+            s.print_grid()
+    except SudokuError as se:
+        print(str(se))
+
+    print("\n", "="*25, sep="")
+
+    s = Sudoku(grid_1)
+    s.print_grid()
+
+    try:
+        if s.solve():
+            s.print_grid()
+    except SudokuError as se:
+        print("\n", str(se), sep="")
+
+    print("\n", "="*25, sep="")
 
     # s.new_grid(Sudoku.EASY)
-
     # s.new_grid(Sudoku.NORMAL)
-
     s.new_grid(Sudoku.HARD)
     s.print_grid()
 
-    if s.solve():
-        s.print_grid()
+    try:
+        if s.solve():
+            s.print_grid()
+    except SudokuError as se:
+        print(str(se))
